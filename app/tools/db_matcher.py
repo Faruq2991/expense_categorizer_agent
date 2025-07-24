@@ -1,0 +1,82 @@
+import sqlite3
+import re
+from typing import Optional, Dict, List
+from langchain_core.tools import BaseTool
+from pydantic import PrivateAttr
+
+class KeywordDBMatcherTool(BaseTool):
+    """
+    KeywordDBMatcherTool is a LangChain-compatible tool that connects to a SQLite database
+    to categorize transaction text based on stored keyword patterns.
+    """
+    name: str = "keyword_db_matcher"
+    description: str = "Uses a database to match transaction text to known category keywords and returns the category. Input is the transaction text."
+
+    # Use PrivateAttr for attributes that are not part of the Pydantic model's data
+    # but are needed by the instance.
+    _conn: sqlite3.Connection = PrivateAttr()
+
+    # Constructor to initialize the tool with a database connection
+    def __init__(self, conn: sqlite3.Connection, **kwargs):
+        """Initializes the tool and sets the connection's row_factory."""
+        super().__init__(**kwargs)
+        self._conn = conn
+        # --- FIX ADDED HERE ---
+        # This line makes the database connection return dictionary-like rows,
+        # allowing you to access columns by name (e.g., row['keyword']).
+        self._conn.row_factory = sqlite3.Row
+
+    def _normalize_text(self, text: str) -> str:
+        """Normalize text for consistent matching (lowercase, strip whitespace)."""
+        return text.strip().lower()
+
+    def _run(self, input_text: str) -> Optional[str]:
+        """
+        Main execution method required by BaseTool.
+        Scans input text against database keywords and returns the first matched category.
+        """
+        normalized = self._normalize_text(input_text)
+        # The cursor will now produce dictionary-like rows
+        cursor = self._conn.execute("SELECT keyword, category FROM keyword_category")
+        for row in cursor:
+            # This code will now work correctly
+            pattern = r'\b' + re.escape(row['keyword'].lower()) + r'\b'
+            if re.search(pattern, normalized):
+                return row['category']
+        return None
+
+    async def _arun(self, input_text: str) -> Optional[str]:
+        """Asynchronous version of the _run method."""
+        # For SQLite, which is blocking, you might just call _run in a thread pool
+        # or simply raise NotImplementedError if async is not supported/needed.
+        # For simplicity, we'll just call the sync version for now.
+        return self._run(input_text)
+
+    def get_all_matches(self, input_text: str) -> Dict[str, List[str]]:
+        """
+        Returns all matching categories with their keywords.
+        """
+        normalized_text = self._normalize_text(input_text)
+        matches: Dict[str, List[str]] = {} 
+        cursor = self._conn.execute("SELECT keyword, category FROM keyword_category")
+        for row in cursor:
+            # This code will now work correctly
+            pattern = r'\b' + re.escape(row['keyword'].lower()) + r'\b'
+            if re.search(pattern, normalized_text):
+                matches.setdefault(row['category'], []).append(row['keyword'])
+        return matches
+
+    def get_best_match(self, input_text: str) -> Optional[str]:
+        """
+        Returns the best matching category based on number of keyword matches.
+        In case of ties, returns the first category encountered.
+        """
+        all_matches = self.get_all_matches(input_text)
+        
+        if not all_matches:
+            return None
+        
+        # Find category with most matched keywords
+        best_category = max(all_matches.keys(), 
+                            key=lambda cat: len(all_matches[cat]))
+        return best_category

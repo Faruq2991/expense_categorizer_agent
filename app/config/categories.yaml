@@ -1,0 +1,12 @@
+Food:
+  - "mcdonalds"
+  - "uber eats"
+  - "kfc"
+Transport:
+  - "uber"
+  - "lyft"
+  - "bolt"
+Entertainment:
+  - "netflix"
+  - "spotify"
+  - "youtube"

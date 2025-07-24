@@ -1,0 +1,10 @@
+# tests/test_categories.yaml
+Test Category 1:
+  - keyword1
+  - keyword2
+  - exact match
+  - another keyword for category 1
+Test Category 2:
+  - keyword3
+  - different_keyword
+  - second keyword for category 2
