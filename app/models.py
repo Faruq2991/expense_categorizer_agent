@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 from typing import Optional
 
-class CategorizationRequest(BaseModel):
-    description: str
+class CategorizeRequest(BaseModel):
+    input_text: str
 
-class CategorizationResponse(BaseModel):
+class CategorizeResponse(BaseModel):
     category: str
     reasoning: Optional[str]

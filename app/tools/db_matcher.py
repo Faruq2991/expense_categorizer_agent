@@ -21,9 +21,6 @@ class KeywordDBMatcherTool(BaseTool):
         """Initializes the tool and sets the connection's row_factory."""
         super().__init__(**kwargs)
         self._conn = conn
-        # --- FIX ADDED HERE ---
-        # This line makes the database connection return dictionary-like rows,
-        # allowing you to access columns by name (e.g., row['keyword']).
         self._conn.row_factory = sqlite3.Row
 
     def _normalize_text(self, text: str) -> str:

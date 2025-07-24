@@ -1,6 +1,6 @@
 import pytest
 import sqlite3
-from app.agent.categorizer_agent import build_graph
+from app.agent import build_graph
 from app.tools.db_matcher import KeywordDBMatcherTool
 from app.tools.regex_matcher import RegexMatcherTool
 
@@ -52,7 +52,7 @@ def configured_graph(setup_database):
     # 2. Re-implement the build_graph logic here for clarity and isolation
     # We are now injecting our test-specific tools.
     from langgraph.graph import StateGraph, END
-    from app.agent.categorizer_agent import AgentState, db_matcher_node, regex_matcher_node, category_router
+    from app.agent import AgentState, db_matcher_node, regex_matcher_node, category_router
 
     # This is a bit of a workaround to inject the test tools into the nodes
     # A more advanced setup might use dependency injection frameworks.
