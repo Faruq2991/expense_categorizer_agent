@@ -49,7 +49,7 @@ def show_categorization_page():
         st.info("No active session. Please start a new session.")
         if st.button("Start New Session"):
             start_new_session()
-            st.experimental_rerun()
+            st.rerun()
         return
     else:
         st.sidebar.success(f"Active Session ID: {st.session_state.session_id}")
