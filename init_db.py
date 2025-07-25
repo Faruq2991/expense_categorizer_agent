@@ -29,11 +29,10 @@ def initialize_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             input_text TEXT NOT NULL,
-            normalized_text TEXT NOT NULL,
             final_category TEXT NOT NULL,
-            matching_method TEXT NOT NULL,
-            confidence_score REAL NOT NULL,
-            reasoning TEXT
+            matching_method TEXT,
+            confidence_score REAL,
+            tags TEXT
         )
     """)
     print("'categorization_log' table is ready.")
@@ -43,11 +42,57 @@ def initialize_database():
     print("Creating 'keyword_category' table if it doesn't exist...")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS keyword_category (
-            keyword TEXT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword TEXT NOT NULL,
             category TEXT NOT NULL
         )
     """)
     print("'keyword_category' table is ready.")
+
+    # --- Create sessions table ---
+    print("Creating 'sessions' table if it doesn't exist...")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_active_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            user_id TEXT,
+            metadata TEXT
+        )
+    """)
+    print("'sessions' table is ready.")
+
+    # --- Create interactions table ---
+    print("Creating 'interactions' table if it doesn't exist...")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS interactions (
+            interaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            interaction_type TEXT NOT NULL,
+            input_data TEXT,
+            output_data TEXT,
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+        )
+    """)
+    print("'interactions' table is ready.")
+
+    # --- Create categorized_expenses table ---
+    print("Creating 'categorized_expenses' table if it doesn't exist...")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS categorized_expenses (
+            expense_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            description TEXT NOT NULL,
+            amount REAL,
+            category TEXT NOT NULL,
+            confidence_score REAL,
+            raw_input TEXT,
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+        )
+    """)
+    print("'categorized_expenses' table is ready.")
 
     # You could add some default keywords here if you wanted, for example:
     # try:

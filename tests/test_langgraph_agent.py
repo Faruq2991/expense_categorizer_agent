@@ -52,23 +52,32 @@ def configured_graph(setup_database):
     # 2. Re-implement the build_graph logic here for clarity and isolation
     # We are now injecting our test-specific tools.
     from langgraph.graph import StateGraph, END
-    from app.agent import AgentState, db_matcher_node, regex_matcher_node, category_router
+    from app.agent import AgentState
 
     # This is a bit of a workaround to inject the test tools into the nodes
     # A more advanced setup might use dependency injection frameworks.
     def test_db_node(state):
         category = db_tool.get_best_match(state["input_text"])
-        return {"category": category, "reasoning": "Matched using DB" if category else None}
+        if category:
+            return {"category": category, "reasoning": "Matched using DB", "confidence_score": 1.0}
+        return {}
 
     def test_regex_node(state):
         category = regex_tool.get_best_match(state["input_text"])
-        return {"category": category or "Unknown", "reasoning": "Matched using Regex" if category else "No match found"}
+        if category:
+            return {"category": category, "reasoning": "Matched using Regex", "confidence_score": 0.8}
+        return {"category": "Unknown", "reasoning": "No match found", "confidence_score": 0.0}
+
+    def test_router(state):
+        if state.get("category"):
+            return END
+        return "regex_matcher"
 
     categorizer = StateGraph(AgentState)
     categorizer.add_node("db_matcher", test_db_node)
     categorizer.add_node("regex_matcher", test_regex_node)
     categorizer.set_entry_point("db_matcher")
-    categorizer.add_conditional_edges("db_matcher", category_router, {"regex_matcher": "regex_matcher", END: END})
+    categorizer.add_conditional_edges("db_matcher", test_router, {"regex_matcher": "regex_matcher", END: END})
     categorizer.add_edge("regex_matcher", END)
     
     return categorizer.compile()
@@ -86,6 +95,7 @@ def test_db_match_found(configured_graph):
     result = graph.invoke(state)
     assert result["category"] == "Transport"
     assert result["reasoning"] == "Matched using DB"
+    assert result["confidence_score"] == 1.0
 
 def test_db_miss_regex_match(configured_graph):
     """
@@ -97,6 +107,7 @@ def test_db_miss_regex_match(configured_graph):
     result = graph.invoke(state)
     assert result["category"] == "Utilities"
     assert result["reasoning"] == "Matched using Regex"
+    assert result["confidence_score"] == 0.8
 
 def test_db_miss_regex_miss(configured_graph):
     """
@@ -107,4 +118,4 @@ def test_db_miss_regex_miss(configured_graph):
     result = graph.invoke(state)
     assert result["category"] == "Unknown"
     assert result["reasoning"] == "No match found"
-
+    assert result["confidence_score"] == 0.0

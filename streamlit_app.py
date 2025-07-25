@@ -20,15 +20,39 @@ def get_db_connection():
 # Function to get all categories from config
 def get_all_categories():
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'config', 'categories.yaml'), 'r') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'app', 'config', 'categories.yaml'), 'r') as f:
             return list(yaml.safe_load(f).keys()) + ["Unknown"]
     except FileNotFoundError:
         return ["Unknown"]
+
+# Session management
+if 'session_id' not in st.session_state:
+    st.session_state.session_id = None
+
+def start_new_session():
+    try:
+        response = requests.post("http://localhost:8000/api/sessions")
+        response.raise_for_status()
+        st.session_state.session_id = response.json()["session_id"]
+        st.success(f"New session started: {st.session_state.session_id}")
+    except requests.exceptions.ConnectionError:
+        st.error("Could not connect to the FastAPI server. Please ensure it is running.")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error starting session: {e}")
 
 # --- Categorization Page ---
 def show_categorization_page():
     st.title("💰 Expense Categorizer")
     st.write("Enter an expense description below to categorize it.")
+
+    if st.session_state.session_id is None:
+        st.info("No active session. Please start a new session.")
+        if st.button("Start New Session"):
+            start_new_session()
+            st.experimental_rerun()
+        return
+    else:
+        st.sidebar.success(f"Active Session ID: {st.session_state.session_id}")
 
     # Input text area for expense description
     expense_description = st.text_area(
@@ -37,23 +61,26 @@ def show_categorization_page():
         height=100
     )
 
-    # Input for tags
-    tags_input = st.text_input(
-        "Tags (comma-separated)",
-        placeholder="e.g., personal, business, travel"
-    )
+    # Input for tags (removed as it's not in the current API)
+    # tags_input = st.text_input(
+    #     "Tags (comma-separated)",
+    #     placeholder="e.g., personal, business, travel"
+    # )
 
     if st.button("Categorize Expense"):
         if expense_description:
             with st.spinner("Categorizing..."):
-                # Prepare the request data including tags
+                # Prepare the request data
                 request_data = {
                     "input_text": expense_description,
-                    "tags": tags_input if tags_input else None
                 }
                 # Make a POST request to the FastAPI categorize endpoint
                 try:
-                    response = requests.post("http://localhost:8000/api/categorize", json=request_data)
+                    response = requests.post(
+                        "http://localhost:8000/api/categorize",
+                        json=request_data,
+                        params={"session_id": st.session_state.session_id}
+                    )
                     response.raise_for_status() # Raise an exception for HTTP errors
                     result = response.json()
                 except requests.exceptions.ConnectionError:
@@ -96,7 +123,11 @@ def show_categorization_page():
                         "confidence_score": result.get('confidence_score', 0.0)
                     }
                     try:
-                        response = requests.post("http://localhost:8000/api/feedback", json=feedback_data)
+                        response = requests.post(
+                            "http://localhost:8000/api/feedback",
+                            json=feedback_data,
+                            params={"session_id": st.session_state.session_id}
+                        )
                         if response.status_code == 200:
                             st.success("Feedback submitted successfully!")
                         else:
@@ -123,15 +154,48 @@ def show_analytics_page():
     conn = get_db_connection()
     df_log = pd.read_sql_query("SELECT * FROM categorization_log", conn)
     df_feedback = pd.read_sql_query("SELECT * FROM feedback", conn)
+    df_sessions = pd.read_sql_query("SELECT * FROM sessions", conn)
+    df_interactions = pd.read_sql_query("SELECT * FROM interactions", conn)
+    df_categorized_expenses = pd.read_sql_query("SELECT * FROM categorized_expenses", conn)
     conn.close()
 
+    st.subheader("Overall Categorization Log")
     if not df_log.empty:
-        st.subheader("Most Common Categories")
-        category_counts = df_log['final_category'].value_counts().reset_index()
+        st.dataframe(df_log)
+    else:
+        st.info("No categorization log data available yet.")
+
+    st.subheader("Sessions Overview")
+    if not df_sessions.empty:
+        st.dataframe(df_sessions)
+    else:
+        st.info("No session data available yet.")
+
+    st.subheader("Interactions Log")
+    if not df_interactions.empty:
+        st.dataframe(df_interactions)
+    else:
+        st.info("No interaction data available yet.")
+
+    st.subheader("Categorized Expenses Log")
+    if not df_categorized_expenses.empty:
+        st.dataframe(df_categorized_expenses)
+
+        st.subheader("Most Common Categories (from Categorized Expenses)")
+        category_counts = df_categorized_expenses['category'].value_counts().reset_index()
         category_counts.columns = ['Category', 'Count']
         st.bar_chart(category_counts.set_index('Category'))
+
+        st.subheader("Total Amount by Category")
+        if 'amount' in df_categorized_expenses.columns:
+            amount_by_category = df_categorized_expenses.groupby('category')['amount'].sum().reset_index()
+            amount_by_category.columns = ['Category', 'Total Amount']
+            st.bar_chart(amount_by_category.set_index('Category'))
+        else:
+            st.info("Amount column not available in categorized expenses for this analysis.")
+
     else:
-        st.info("No categorization data available yet. Categorize some expenses first!")
+        st.info("No categorized expense data available yet.")
 
     if not df_feedback.empty:
         st.subheader("Frequent Keyword Misses (Corrections)")
