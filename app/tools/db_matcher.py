@@ -2,6 +2,7 @@ import sqlite3
 import re
 from typing import Optional, Dict, List
 from langchain_core.tools import BaseTool
+from pydantic import PrivateAttr
 
 class KeywordDBMatcherTool(BaseTool):
     """
@@ -11,10 +12,12 @@ class KeywordDBMatcherTool(BaseTool):
     name: str = "keyword_db_matcher"
     description: str = "Uses a database to match transaction text to known category keywords and returns the category. Input is the transaction text."
 
+    _conn: sqlite3.Connection = PrivateAttr()
+
     def __init__(self, conn: sqlite3.Connection, **kwargs):
         super().__init__(**kwargs)
-        self.conn = conn
-        self.conn.row_factory = sqlite3.Row
+        object.__setattr__(self, '_conn', conn)
+        self._conn.row_factory = sqlite3.Row
 
     def _normalize_text(self, text: str) -> str:
         """Normalize text for consistent matching (lowercase, strip whitespace)."""
@@ -26,7 +29,7 @@ class KeywordDBMatcherTool(BaseTool):
         Scans input text against database keywords and returns the first matched category.
         """
         normalized = self._normalize_text(input_text)
-        cursor = self.conn.execute("SELECT keyword, category FROM keyword_category")
+        cursor = self._conn.execute("SELECT keyword, category FROM keyword_category")
         for row in cursor:
             pattern = r'\b' + re.escape(row['keyword'].lower()) + r'\b'
             if re.search(pattern, normalized):
@@ -43,7 +46,7 @@ class KeywordDBMatcherTool(BaseTool):
         """
         normalized_text = self._normalize_text(input_text)
         matches: Dict[str, List[str]] = {} 
-        cursor = self.conn.execute("SELECT keyword, category FROM keyword_category")
+        cursor = self._conn.execute("SELECT keyword, category FROM keyword_category")
         for row in cursor:
             pattern = r'\b' + re.escape(row['keyword'].lower()) + r'\b'
             if re.search(pattern, normalized_text):
