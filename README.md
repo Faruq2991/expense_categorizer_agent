@@ -2,35 +2,39 @@
 
 ## About
 
-This application provides an intelligent, automated solution for categorizing expenses from textual descriptions. It features a multi-stage AI agent utilizing both keyword database and regex pattern matching, accessible via a user-friendly Streamlit interface and a robust FastAPI.
+This application provides an intelligent, automated solution for categorizing expenses from textual descriptions. It features a multi-stage AI agent utilizing keyword database, regex pattern matching, and an LLM fallback, accessible via a robust FastAPI.
 
 ## Features
 
 *   **Intelligent Expense Categorization:** Automatically assigns categories (e.g., Food, Transport, Housing) to expense descriptions.
-*   **Hybrid Matching System:**
+*   **Multi-Stage Hybrid Matching System:**
+    *   **Text Normalization:** Preprocesses input text to clean noise and standardize formats (e.g., "POS TRXN", currency symbols).
     *   **Keyword Database Matching:** Utilizes a SQLite database (`keywords.db`) for precise keyword-to-category mapping. Ideal for common, well-defined expenses.
     *   **Regex Pattern Matching:** Employs regular expressions defined in `app/config/categories.yaml` for flexible pattern-based categorization. Useful for broader categories or variations in descriptions.
-*   **LangGraph Agent Orchestration:** A sophisticated agent orchestrates the categorization process, first attempting a database match and falling back to regex matching if no direct keyword match is found.
-*   **Streamlit User Interface:** A simple and intuitive web interface for interactive expense categorization.
-*   **FastAPI:** A RESTful API endpoint for integrating the categorization logic into other applications or services.
+    *   **LLM Fallback:** If neither DB nor Regex matching yields a confident result, an OpenAI Large Language Model is used as a fallback to categorize the expense.
+*   **Confidence Scores:** Each categorization method (DB, Regex, LLM) provides a confidence score, indicating the certainty of the match.
+*   **User Feedback Mechanism:** Allows users to correct miscategorizations, which can be used to improve future categorization accuracy.
+*   **Categorization Logging:** All categorization events are logged, including input text, final category, matching method, confidence score, and optional tags.
+*   **FastAPI:** A robust RESTful API for integrating the categorization logic into other applications or services.
 *   **Extensible Configuration:** Easily add or modify categories and keywords through configuration files and the SQLite database.
 
 ## Architecture
 
 The application is structured into several key components:
 
-1.  **Streamlit UI (`app/streamlit_app.py`):** The frontend interface that allows users to input expense descriptions and view categorization results. It interacts directly with the LangGraph agent.
-2.  **FastAPI (`app/main.py`, `app/agent_api.py`):** Provides a `/api/categorize` endpoint for external systems to submit expense descriptions and receive categorized results.
-3.  **LangGraph Agent (`app/agent.py`):** The core intelligence of the application. It defines a state graph with two main nodes:
+1.  **FastAPI (`app/main.py`, `app/agent_api.py`):** Provides API endpoints for expense categorization (`/categorize`) and user feedback submission (`/feedback`).
+2.  **LangGraph Agent (`app/agent.py`):** The core intelligence of the application. It defines a state graph with multiple nodes:
     *   `db_matcher`: Attempts to categorize expenses using the `KeywordDBMatcherTool`.
     *   `regex_matcher`: If `db_matcher` fails, this node uses the `RegexMatcherTool` for categorization.
-    The agent intelligently routes the expense description through these matchers.
-4.  **Matching Tools (`app/tools/`):**
+    *   `llm_categorizer`: If both `db_matcher` and `regex_matcher` fail, this node uses an LLM for categorization.
+    The agent intelligently routes the expense description through these matchers and determines the final category based on confidence.
+3.  **Matching Tools (`app/tools/`):**
+    *   `text_normalizer.py`: Implements logic for cleaning and standardizing input text.
     *   `db_matcher.py`: Implements the logic for matching expense descriptions against keywords stored in `data/keywords.db`.
     *   `regex_matcher.py`: Implements the logic for matching expense descriptions against regex patterns defined in `app/config/categories.yaml`.
-5.  **Data and Configuration:**
-    *   `data/keywords.db`: A SQLite database storing keyword-to-category mappings.
-    *   `data/schema.sql`: Defines the schema for `keywords.db`.
+4.  **Data and Configuration:**
+    *   `data/keywords.db`: A SQLite database storing keyword-to-category mappings, feedback, categorization logs, and keyword embeddings.
+    *   `data/schema.sql`: Defines the schema for `keywords.db`, including tables for `keyword_category`, `feedback`, `categorization_log`, and `keyword_embeddings`.
     *   `data/seed.sql`: Populates `keywords.db` with initial data.
     *   `app/config/categories.yaml`: Defines categories and associated regex patterns for the `RegexMatcherTool`.
 
@@ -65,24 +69,15 @@ pip install -r requirements.txt
 
 ### 4. Initialize the Database
 
-The application uses a SQLite database for keyword matching. You need to initialize it and populate it with seed data.
+The application uses a SQLite database. You need to initialize it and populate it with seed data.
 
 ```bash
-sqlite3 data/keywords.db < data/schema.sql
+python init_db.py
 sqlite3 data/keywords.db < data/seed.sql
 ```
+**Note:** Ensure you have the `OPENAI_API_KEY` environment variable set for the LLM fallback to work.
 
 ## Usage
-
-### Running the Streamlit Application
-
-To launch the interactive Streamlit UI:
-
-```bash
-streamlit run app/streamlit_app.py
-```
-
-This command will open the application in your default web browser (usually at `http://localhost:8501`). You can then enter expense descriptions and see the categorized results.
 
 ### Running the FastAPI
 
@@ -94,27 +89,52 @@ uvicorn app.main:app --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
-#### API Endpoint
+#### API Endpoints
 
-*   **POST `/api/categorize`**
+*   **POST `/categorize`**
+    *   **Description:** Categorizes an expense description.
     *   **Request Body:**
         ```json
         {
-            "input_text": "Paid for my uber ride and groceries"
+            "input_text": "Paid for my uber ride and groceries",
+            "tags": "personal, travel"
         }
         ```
     *   **Response Body (Success):**
         ```json
         {
             "category": "Transport",
-            "reasoning": "Matched using DB"
+            "reasoning": "Matched using DB",
+            "confidence_score": 1.0,
+            "matching_method": "DB"
         }
         ```
-    *   **Response Body (No Match):**
+    *   **Response Body (No Match / Unknown):**
         ```json
         {
             "category": "Unknown",
-            "reasoning": "No match found"
+            "reasoning": "LLM returned invalid category: Unknown",
+            "confidence_score": 0.0,
+            "matching_method": "LLM"
+        }
+        ```
+
+*   **POST `/feedback`**
+    *   **Description:** Submits user feedback for miscategorized expenses, which can be used to improve the system.
+    *   **Request Body:**
+        ```json
+        {
+            "input_text": "Paid for my uber ride and groceries",
+            "predicted_category": "Unknown",
+            "corrected_category": "Transport",
+            "reasoning": "User corrected to Transport",
+            "confidence_score": 0.5
+        }
+        ```
+    *   **Response Body (Success):**
+        ```json
+        {
+            "message": "Feedback received and stored successfully!"
         }
         ```
 
@@ -160,23 +180,25 @@ NewCategory:
   - "new keyword 2"
 ```
 
-After modifying `categories.yaml`, restart the application (both Streamlit and FastAPI) for changes to take effect.
+After modifying `categories.yaml`, restart the application (FastAPI) for changes to take effect.
 
 ## Project Structure
 
 ```
 .
 ├── .gitignore
+├── Improvement Plan.md
+├── README.md
 ├── requirements.txt
+├── TODO.md
+├── init_db.py            # Script to initialize the SQLite database schema
 ├── api/                  # (Potentially for future external API definitions)
 ├── app/
 │   ├── __init__.py
-│   ├── agent_api.py      # FastAPI router for agent
+│   ├── agent_api.py      # FastAPI router for agent and feedback
 │   ├── agent.py          # LangGraph agent definition
 │   ├── main.py           # FastAPI application entry point
 │   ├── models.py         # Pydantic models for API requests/responses
-│   ├── README.md         # (This file)
-│   ├── streamlit_app.py  # Streamlit UI application
 │   ├── config/
 │   │   ├── __init__.py
 │   │   ├── categories.yaml # Regex patterns configuration
@@ -187,10 +209,13 @@ After modifying `categories.yaml`, restart the application (both Streamlit and F
 │   └── tools/
 │       ├── __init__.py
 │       ├── db_matcher.py   # Keyword database matching logic
-│       └── regex_matcher.py # Regex matching logic
+│       ├── regex_matcher.py # Regex matching logic
+│       └── text_normalizer.py # Text normalization logic
 ├── data/
-│   ├── keywords.db       # SQLite database for keyword matching
+│   ├── keywords.db       # SQLite database for keyword matching, feedback, logs, and embeddings
 │   ├── schema.sql        # Database schema
 │   └── seed.sql          # Initial database data
+├── scripts/
+│   └── generate_embeddings.py # Script to generate keyword embeddings
 └── tests/                # Unit and integration tests
 ```
