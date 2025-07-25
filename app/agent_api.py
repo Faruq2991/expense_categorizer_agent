@@ -1,4 +1,3 @@
-from typing import Optional
 from fastapi import APIRouter
 from app.models import CategorizeRequest, CategorizeResponse, FeedbackRequest
 from app.agent import run_categorizer
@@ -25,16 +24,16 @@ def update_keyword_db(keyword: str, category: str):
         print(f"Keyword '{keyword}' already exists for category '{category}'. No update needed.")
     conn.close()
 
-def log_categorization(input_text: str, category: str, matching_method: str, confidence_score: float, tags: Optional[str] = None):
+def log_categorization(input_text: str, category: str, matching_method: str, confidence_score: float):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO categorization_log (input_text, final_category, matching_method, confidence_score, tags) VALUES (?, ?, ?, ?, ?)",
-        (input_text, category, matching_method, confidence_score, tags)
+        "INSERT INTO categorization_log (input_text, final_category, matching_method, confidence_score) VALUES (?, ?, ?, ?)",
+        (input_text, category, matching_method, confidence_score)
     )
     conn.commit()
     conn.close()
-    print(f"Logged categorization: {input_text} -> {category} ({matching_method}, {confidence_score}, Tags: {tags})")
+    print(f"Logged categorization: {input_text} -> {category} ({matching_method}, {confidence_score})")
 
 @router.post("/categorize", response_model=CategorizeResponse)
 def categorize_expense(req: CategorizeRequest):
@@ -45,8 +44,7 @@ def categorize_expense(req: CategorizeRequest):
         req.input_text,
         result["category"] or "Unknown",
         result.get("matching_method", "Unknown"),
-        result.get("confidence_score", 0.0),
-        req.tags # Pass the tags from the request
+        result.get("confidence_score", 0.0)
     )
 
     return CategorizeResponse(

@@ -41,7 +41,8 @@ def initialize_tools_and_llm():
     """Initializes and returns all the necessary tools and the LLM chain."""
     # Database Tool
     conn = sqlite3.connect("data/keywords.db", check_same_thread=False)
-    db_tool = KeywordDBMatcherTool(conn=conn)
+    db_tool = KeywordDBMatcherTool()
+    db_tool.set_connection(conn)
 
     # Regex Tool
     try:

@@ -3,7 +3,6 @@ from typing import Optional
 
 class CategorizeRequest(BaseModel):
     input_text: str
-    tags: Optional[str] = None
 
 class CategorizeResponse(BaseModel):
     category: str
