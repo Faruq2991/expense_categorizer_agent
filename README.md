@@ -15,6 +15,10 @@ This application provides an intelligent, automated solution for categorizing ex
 *   **Confidence Scores:** Each categorization method (DB, Regex, LLM) provides a confidence score, indicating the certainty of the match.
 *   **User Feedback Mechanism:** Allows users to correct miscategorizations, which can be used to improve future categorization accuracy.
 *   **Categorization Logging:** All categorization events are logged, including input text, final category, matching method, confidence score, and optional tags.
+*   **Persistent Sessions:** Tracks user sessions, allowing for a continuous interaction history and personalized experience.
+*   **Analytics Dashboard:** Provides insights into categorization patterns, user feedback, and session activity through a dedicated Streamlit analytics page.
+*   **Persistent Sessions:** Tracks user sessions, allowing for a continuous interaction history and personalized experience.
+*   **Analytics Dashboard:** Provides insights into categorization patterns, user feedback, and session activity through a dedicated Streamlit analytics page.
 *   **FastAPI:** A robust RESTful API for integrating the categorization logic into other applications or services.
 *   **Extensible Configuration:** Easily add or modify categories and keywords through configuration files and the SQLite database.
 
@@ -22,20 +26,20 @@ This application provides an intelligent, automated solution for categorizing ex
 
 The application is structured into several key components:
 
-1.  **Streamlit UI (`streamlit_app.py`):** A simple and intuitive web interface for interactive expense categorization. It interacts directly with the LangGraph agent via the `run_categorizer` function.
-2.  **FastAPI (`app/main.py`, `app/agent_api.py`):** Provides API endpoints for expense categorization (`/categorize`) and user feedback submission (`/feedback`).
-2.  **LangGraph Agent (`app/agent.py`):** The core intelligence of the application. It defines a state graph with multiple nodes:
+1.  **Streamlit UI (`streamlit_app.py`):** A simple and intuitive web interface for interactive expense categorization and analytics. It interacts with the FastAPI backend.
+2.  **FastAPI (`app/main.py`, `app/agent_api.py`):** Provides API endpoints for expense categorization (`/api/categorize`), user feedback submission (`/api/feedback`), session management (`/api/sessions`), and retrieving interaction/expense logs (`/api/interactions`, `/api/categorized_expenses`).
+3.  **LangGraph Agent (`app/agent.py`):** The core intelligence of the application. It defines a state graph with multiple nodes:
     *   `db_matcher`: Attempts to categorize expenses using the `KeywordDBMatcherTool`.
     *   `regex_matcher`: If `db_matcher` fails, this node uses the `RegexMatcherTool` for categorization.
-    *   `llm_categorizer`: If both `db_matcher` and `regex_matcher` fail, this node uses an LLM for categorization.
+    *   `llm_categorizer`: If both `db_matcher` and `regex_matcher` fail, this node uses an OpenAI Large Language Model as a fallback to categorize the expense.
     The agent intelligently routes the expense description through these matchers and determines the final category based on confidence.
-3.  **Matching Tools (`app/tools/`):**
+4.  **Matching Tools (`app/tools/`):**
     *   `text_normalizer.py`: Implements logic for cleaning and standardizing input text.
     *   `db_matcher.py`: Implements the logic for matching expense descriptions against keywords stored in `data/keywords.db`.
     *   `regex_matcher.py`: Implements the logic for matching expense descriptions against regex patterns defined in `app/config/categories.yaml`.
-4.  **Data and Configuration:**
-    *   `data/keywords.db`: A SQLite database storing keyword-to-category mappings, feedback, categorization logs, and keyword embeddings.
-    *   `data/schema.sql`: Defines the schema for `keywords.db`, including tables for `keyword_category`, `feedback`, `categorization_log`, and `keyword_embeddings`.
+5.  **Data and Configuration:**
+    *   `data/keywords.db`: A SQLite database storing keyword-to-category mappings, feedback, categorization logs, session data, interaction logs, and categorized expenses.
+    *   `data/schema.sql`: Defines the schema for `keywords.db`, including tables for `keyword_category`, `feedback`, `categorization_log`, `sessions`, `interactions`, and `categorized_expenses`.
     *   `data/seed.sql`: Populates `keywords.db` with initial data.
     *   `app/config/categories.yaml`: Defines categories and associated regex patterns for the `RegexMatcherTool`.
 
@@ -102,7 +106,7 @@ The API will be available at `http://127.0.0.1:8000`.
 
 #### API Endpoints
 
-*   **POST `/categorize`**
+*   **POST `/api/categorize`**
     *   **Description:** Categorizes an expense description.
     *   **Request Body:**
         ```json
@@ -130,7 +134,7 @@ The API will be available at `http://127.0.0.1:8000`.
         }
         ```
 
-*   **POST `/feedback`**
+*   **POST `/api/feedback`**
     *   **Description:** Submits user feedback for miscategorized expenses, which can be used to improve the system.
     *   **Request Body:**
         ```json
@@ -148,6 +152,35 @@ The API will be available at `http://127.0.0.1:8000`.
             "message": "Feedback received and stored successfully!"
         }
         ```
+
+*   **POST `/api/sessions`**
+    *   **Description:** Starts a new user session.
+    *   **Request Body (Optional):**
+        ```json
+        {
+            "user_id": "user123",
+            "metadata": "some_session_data"
+        }
+        ```
+    *   **Response Body (Success):**
+        ```json
+        {
+            "session_id": "uuid-of-new-session",
+            "start_time": "2023-10-27T10:00:00",
+            "last_active_time": "2023-10-27T10:00:00",
+            "user_id": "user123",
+            "metadata": "some_session_data"
+        }
+        ```
+
+*   **GET `/api/sessions/{session_id}`**
+    *   **Description:** Retrieves details of a specific session.
+
+*   **GET `/api/interactions/{session_id}`**
+    *   **Description:** Retrieves all interactions for a given session.
+
+*   **GET `/api/categorized_expenses/{session_id}`**
+    *   **Description:** Retrieves all categorized expenses for a given session.
 
 You can test the API using tools like `curl`, Postman, or by visiting `http://127.0.0.1:8000/docs` for the interactive OpenAPI documentation (Swagger UI).
 

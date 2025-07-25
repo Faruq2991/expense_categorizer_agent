@@ -54,22 +54,18 @@ This document outlines detailed implementation plans for each enhancement listed
 
 **Goal:** Log categorization history and provide analytical insights.
 
-### Detailed Plan:
+### Status: Implemented
+
+**Details:**
 
 1.  **Log Categorization Data:**
-    *   **Database Schema:** Create a new table in `data/keywords.db` (or a new SQLite database) to log each categorization event. Fields should include: `log_id`, `timestamp`, `description`, `final_category`, `matching_method_used`, `confidence_score` (if implemented).
-    *   **Logging Logic:** Integrate logging into `app/agent.py` (or a dedicated logging service) to record details after each `graph.invoke` call.
+    *   **Database Schema:** New tables (`sessions`, `interactions`, `categorized_expenses`) added to `data/keywords.db` via `data/schema.sql` and `init_db.py`.
+    *   **Logging Logic:** Integrated into `app/agent_api.py` to record session creation, user interactions, and categorized expenses.
 2.  **Visualize Analytics (Streamlit):**
-    *   **New Streamlit Page:** Create a separate page or section in `app/streamlit_app.py` for analytics.
-    *   **Data Retrieval:** Implement functions to query the logging database.
-    *   **Visualization:** Use Streamlit's charting capabilities (`st.bar_chart`, `st.line_chart`, etc.) to display:
-        *   Most common categories (bar chart).
-        *   Categorization trends over time.
-        *   Breakdown of matching methods used (pie chart).
-        *   (If feedback implemented) Frequent keyword misses, user correction patterns.
-3.  **Tagging/Grouping (Future Iteration):**
-    *   **UI Element:** Add an input field in the Streamlit UI for users to add tags (e.g., "personal", "business") to transactions.
-    *   **Database Field:** Add a `tags` column to the logging table.
+    *   **New Streamlit Page:** Analytics page added to `streamlit_app.py`.
+    *   **Data Retrieval:** Functions implemented to query `sessions`, `interactions`, and `categorized_expenses` tables.
+    *   **Visualization:** Displays common categories, session overview, interaction logs, and categorized expense details.
+3.  **Tagging/Grouping:** (Future Iteration - not part of initial implementation, but planned for future)
 
 ---
 
