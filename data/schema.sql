@@ -32,11 +32,4 @@ CREATE TABLE categorization_log (
     tags TEXT
 );
 
-DROP TABLE IF EXISTS keyword_embeddings;
 
-CREATE TABLE keyword_embeddings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    keyword TEXT NOT NULL UNIQUE,
-    category TEXT NOT NULL,
-    embedding BLOB NOT NULL
-);

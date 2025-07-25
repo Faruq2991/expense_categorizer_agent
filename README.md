@@ -11,8 +11,7 @@ This application provides an intelligent, automated solution for categorizing ex
     *   **Text Normalization:** Preprocesses input text to clean noise and standardize formats (e.g., "POS TRXN", currency symbols).
     *   **Keyword Database Matching:** Utilizes a SQLite database (`keywords.db`) for precise keyword-to-category mapping. Ideal for common, well-defined expenses.
     *   **Regex Pattern Matching:** Employs regular expressions defined in `app/config/categories.yaml` for flexible pattern-based categorization. Useful for broader categories or variations in descriptions.
-    *   **Vector Similarity Matching:** Uses pre-computed embeddings and cosine similarity to find semantically similar keywords, providing fuzzy matching capabilities.
-    *   **LLM Fallback:** If neither DB, Regex, nor Vector matching yields a confident result, an OpenAI Large Language Model is used as a fallback to categorize the expense.
+    *   **LLM Fallback:** If neither DB nor Regex matching yields a confident result, an OpenAI Large Language Model is used as a fallback to categorize the expense.
 *   **Confidence Scores:** Each categorization method (DB, Regex, LLM) provides a confidence score, indicating the certainty of the match.
 *   **User Feedback Mechanism:** Allows users to correct miscategorizations, which can be used to improve future categorization accuracy.
 *   **Categorization Logging:** All categorization events are logged, including input text, final category, matching method, confidence score, and optional tags.
@@ -23,7 +22,8 @@ This application provides an intelligent, automated solution for categorizing ex
 
 The application is structured into several key components:
 
-1.  **FastAPI (`app/main.py`, `app/agent_api.py`):** Provides API endpoints for expense categorization (`/categorize`) and user feedback submission (`/feedback`).
+1.  **Streamlit UI (`streamlit_app.py`):** A simple and intuitive web interface for interactive expense categorization. It interacts directly with the LangGraph agent via the `run_categorizer` function.
+2.  **FastAPI (`app/main.py`, `app/agent_api.py`):** Provides API endpoints for expense categorization (`/categorize`) and user feedback submission (`/feedback`).
 2.  **LangGraph Agent (`app/agent.py`):** The core intelligence of the application. It defines a state graph with multiple nodes:
     *   `db_matcher`: Attempts to categorize expenses using the `KeywordDBMatcherTool`.
     *   `regex_matcher`: If `db_matcher` fails, this node uses the `RegexMatcherTool` for categorization.
@@ -79,6 +79,16 @@ sqlite3 data/keywords.db < data/seed.sql
 **Note:** Ensure you have the `OPENAI_API_KEY` environment variable set for the LLM fallback to work.
 
 ## Usage
+
+### Running the Streamlit Application
+
+To launch the interactive Streamlit UI:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+This command will open the application in your default web browser (usually at `http://localhost:8501`). You can then enter expense descriptions and see the categorized results.
 
 ### Running the FastAPI
 
@@ -200,6 +210,7 @@ After modifying `categories.yaml`, restart the application (FastAPI) for changes
 │   ├── agent.py          # LangGraph agent definition
 │   ├── main.py           # FastAPI application entry point
 │   ├── models.py         # Pydantic models for API requests/responses
+│   ├── streamlit_app.py  # Streamlit UI application
 │   ├── config/
 │   │   ├── __init__.py
 │   │   ├── categories.yaml # Regex patterns configuration

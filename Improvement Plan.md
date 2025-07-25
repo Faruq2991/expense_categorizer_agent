@@ -102,19 +102,15 @@ This document outlines detailed implementation plans for each enhancement listed
     *   **Embedding Model:** Choose a suitable sentence embedding model (e.g., `sentence-transformers` or OpenAI embeddings).
     *   **Pre-compute Embeddings:** For all keywords in `data/keywords.db` and phrases in `app/config/categories.yaml`, compute their embeddings.
     *   **Store Embeddings:** Store these embeddings in a new table in `data/keywords.db` or a dedicated vector store (e.g., FAISS, ChromaDB).
-    *   **Status:** Implemented via `scripts/generate_embeddings.py`.
 2.  **Vector Similarity Matching Tool:**
     *   **New Tool:** Create a `vector_matcher.py` in `app/tools/`.
     *   **Matching Logic:** This tool will take the `input_text`, compute its embedding, and then find the most similar keyword embedding from the stored embeddings.
     *   **Thresholding:** Implement a similarity threshold to determine if a match is confident enough.
-    *   **Status:** Implemented in `app/tools/vector_matcher.py`.
 3.  **Integrate into LangGraph:**
     *   **New Node:** Add a `vector_matcher_node` to `app/agent.py`.
     *   **Routing:** Integrate this node into the `category_router` or a new ensemble node, potentially as another fallback or as a parallel signal source.
-    *   **Status:** Implemented in `app/agent.py` as a fallback after regex matching.
 4.  **Merge Results:**
     *   Develop a strategy to combine results from regex, DB, and vector similarity (e.g., weighted voting, hierarchical fallback).
-    *   **Status:** Integrated into the `decision_node` in `app/agent.py` by adding it to the sequential fallback chain.
 
 ---
 
