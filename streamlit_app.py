@@ -142,9 +142,65 @@ def show_categorization_page():
     st.markdown(
         """
         ---
-        This application uses an AI agent to categorize expenses based on keywords and regex patterns.
+        This application uses an AI agent to categorize expenses based on keywords and regex patterns and LLM as fallback when keywords are not found.
         """
     )
+
+# --- Custom Categories Page ---
+def show_custom_categories_page():
+    st.title("📚 Custom Categories & Keywords")
+    st.write("Manage your personal expense categorization rules.")
+
+    user_id = st.session_state.session_id # Using session_id as user_id for simplicity
+
+    if not user_id:
+        st.warning("Please start a session on the Categorization page to manage custom categories.")
+        return
+
+    st.subheader(f"Keywords for User: {user_id}")
+
+    # Fetch and display existing keywords
+    try:
+        response = requests.get(f"http://localhost:8000/api/keywords", params={"user_id": user_id})
+        response.raise_for_status()
+        keywords = response.json()
+        if keywords:
+            st.dataframe(keywords)
+        else:
+            st.info("No custom keywords found for this user. Add some below!")
+    except requests.exceptions.ConnectionError:
+        st.error("Could not connect to the FastAPI server. Please ensure it is running.")
+        return
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching keywords: {e}")
+        return
+
+    st.subheader("Add New Custom Keyword")
+    with st.form("new_keyword_form"):
+        new_keyword = st.text_input("Keyword (e.g., 'Starbucks')")
+        new_category = st.text_input("Category (e.g., 'Coffee')")
+        submitted = st.form_submit_button("Add Keyword")
+
+        if submitted:
+            if new_keyword and new_category:
+                try:
+                    add_response = requests.post(
+                        "http://localhost:8000/api/keywords",
+                        json={
+                            "user_id": user_id,
+                            "keyword": new_keyword,
+                            "category": new_category
+                        }
+                    )
+                    add_response.raise_for_status()
+                    st.success(f"Keyword '{new_keyword}' added to category '{new_category}'!")
+                    st.rerun()
+                except requests.exceptions.ConnectionError:
+                    st.error("Could not connect to the FastAPI server. Please ensure it is running.")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error adding keyword: {e}")
+            else:
+                st.warning("Please enter both a keyword and a category.")
 
 # --- Analytics Page ---
 def show_analytics_page():
@@ -228,9 +284,11 @@ def show_analytics_page():
         st.info("No feedback data available yet.")
 
     # --- Main App Logic ---
-page = st.sidebar.selectbox("Select a page", ["Categorization", "Analytics"])
+page = st.sidebar.selectbox("Select a page", ["Categorization", "Analytics", "Custom Categories"])
 
 if page == "Categorization":
     show_categorization_page()
 elif page == "Analytics":
     show_analytics_page()
+elif page == "Custom Categories":
+    show_custom_categories_page()

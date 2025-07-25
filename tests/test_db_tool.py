@@ -4,31 +4,28 @@ import pytest
 from app.tools.db_matcher import KeywordDBMatcherTool
 
 # Setup: create in-memory DB for isolated tests
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def test_db():
     conn = sqlite3.connect(":memory:")
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE keyword_category (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            keyword TEXT NOT NULL,
-            category TEXT NOT NULL
-        )
-    """)
+    cursor.execute("DROP TABLE IF EXISTS keyword_category;")
+    
+    cursor.execute("DROP TABLE IF EXISTS keyword_category;")
+    cursor.execute("CREATE TABLE keyword_category (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, keyword TEXT NOT NULL, category TEXT NOT NULL, UNIQUE(user_id, keyword));")
 
     # Insert test data
     seed_data = [
-        ("uber", "Transport"),
-        ("fuel", "Transport"),
-        ("groceries", "Food"),
-        ("pizza", "Food"),
-        ("rent", "Housing"),
-        ("internet", "Utilities"),
-        ("airtime", "Communication"),
-        ("salary", "Income")
+        (None, "uber", "Transport"),
+        (None, "fuel", "Transport"),
+        (None, "groceries", "Food"),
+        (None, "pizza", "Food"),
+        (None, "rent", "Housing"),
+        (None, "internet", "Utilities"),
+        (None, "airtime", "Communication"),
+        (None, "salary", "Income")
     ]
 
-    cursor.executemany("INSERT INTO keyword_category (keyword, category) VALUES (?, ?)", seed_data)
+    cursor.executemany("INSERT INTO keyword_category (user_id, keyword, category) VALUES (?, ?, ?)", seed_data)
     conn.commit()
 
     yield conn

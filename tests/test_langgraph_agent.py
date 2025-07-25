@@ -15,14 +15,10 @@ def setup_database():
     """
     conn = sqlite3.connect(":memory:")  # Use in-memory database
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE keyword_category (
-            keyword TEXT PRIMARY KEY,
-            category TEXT NOT NULL
-        )
-    """)
+    cursor.execute("DROP TABLE IF EXISTS keyword_category;")
+    cursor.execute("CREATE TABLE keyword_category (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, keyword TEXT NOT NULL, category TEXT NOT NULL, UNIQUE(user_id, keyword));")
     # Add ONLY the data needed for the DB match test
-    cursor.execute("INSERT INTO keyword_category (keyword, category) VALUES (?, ?)", ("uber", "Transport"))
+    cursor.execute("INSERT INTO keyword_category (user_id, keyword, category) VALUES (?, ?, ?)", (None, "uber", "Transport"))
     conn.commit()
     yield conn  # Provide the connection to the test
     conn.close() # Teardown: close the connection after the test is done
@@ -37,7 +33,7 @@ def configured_graph(setup_database):
     # This is a key pattern for testing complex applications.
     
     # 1. Re-create the tools with the in-memory DB connection
-    db_tool = KeywordDBMatcherTool(conn=setup_database)
+    db_tool = KeywordDBMatcherTool(conn=setup_database, user_id=None) # For testing global keywords
     
     category_map = {
         "Transport": ["uber", "fuel", "taxi"],

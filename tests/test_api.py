@@ -5,7 +5,7 @@ client = TestClient(app)
 
 def test_categorize_endpoint_success():
     payload = {"input_text": "Booked a flight ticket"}
-    response = client.post("/api/categorize", json=payload)
+    response = client.post("/api/categorize", json=payload, params={"user_id": "test_user"})
 
     assert response.status_code == 200
     data = response.json()
@@ -16,7 +16,7 @@ def test_categorize_endpoint_success():
 
 def test_categorize_endpoint_empty_text():
     payload = {"input_text": ""}
-    response = client.post("/api/categorize", json=payload)
+    response = client.post("/api/categorize", json=payload, params={"user_id": "test_user"})
 
     assert response.status_code == 200  # You may return 400 if validation added
     data = response.json()

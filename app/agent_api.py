@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.models import CategorizeRequest, CategorizeResponse, FeedbackRequest, Session, Interaction, CategorizedExpense
+from app.models import CategorizeRequest, CategorizeResponse, FeedbackRequest, Session, Interaction, CategorizedExpense, KeywordCategory, KeywordAddRequest
 from app.agent import run_categorizer
 import sqlite3
 import uuid
@@ -13,17 +13,17 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def update_keyword_db(keyword: str, category: str):
+def update_keyword_db(keyword: str, category: str, user_id: str = None):
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Check if the keyword already exists for this category
-    cursor.execute("SELECT * FROM keyword_category WHERE keyword = ? AND category = ?", (keyword, category))
+    # Check if the keyword already exists for this category and user
+    cursor.execute("SELECT * FROM keyword_category WHERE keyword = ? AND category = ? AND (user_id = ? OR (user_id IS NULL AND ? IS NULL))", (keyword, category, user_id, user_id))
     if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO keyword_category (keyword, category) VALUES (?, ?)", (keyword, category))
+        cursor.execute("INSERT INTO keyword_category (keyword, category, user_id) VALUES (?, ?, ?)", (keyword, category, user_id))
         conn.commit()
-        print(f"Added '{keyword}' to category '{category}' in DB.")
+        print(f"Added '{keyword}' to category '{category}' for user '{user_id}' in DB.")
     else:
-        print(f"Keyword '{keyword}' already exists for category '{category}'. No update needed.")
+        print(f"Keyword '{keyword}' already exists for category '{category}' and user '{user_id}'. No update needed.")
     conn.close()
 
 def log_categorization(input_text: str, category: str, matching_method: str, confidence_score: float):
@@ -82,13 +82,13 @@ def log_categorized_expense(session_id: str, description: str, amount: float, ca
     update_session_last_active(session_id)
 
 @router.post("/categorize", response_model=CategorizeResponse)
-def categorize_expense(req: CategorizeRequest, session_id: str = None):
+def categorize_expense(req: CategorizeRequest, session_id: str = None, user_id: str = None):
     if not session_id:
-        session_id = create_session(user_id="default_user") # You might want to get user_id from auth
+        session_id = create_session(user_id=user_id or "default_user") # Use provided user_id or default
     
     log_interaction(session_id, "categorize_request", input_data=req.input_text)
 
-    result = run_categorizer(req.input_text)
+    result = run_categorizer(req.input_text, user_id=user_id)
 
     # Log the categorization event
     log_categorization(
@@ -117,7 +117,7 @@ def categorize_expense(req: CategorizeRequest, session_id: str = None):
     )
 
 @router.post("/feedback")
-def submit_feedback(feedback: FeedbackRequest, session_id: str = None):
+def submit_feedback(feedback: FeedbackRequest, session_id: str = None, user_id: str = None):
     if session_id:
         log_interaction(session_id, "feedback_submission", input_data=str(feedback))
     try:
@@ -136,8 +136,8 @@ def submit_feedback(feedback: FeedbackRequest, session_id: str = None):
         conn.commit()
         conn.close()
 
-        # Update keyword DB based on feedback
-        update_keyword_db(feedback.input_text, feedback.corrected_category)
+        # Update keyword DB based on feedback, now with user_id
+        update_keyword_db(feedback.input_text, feedback.corrected_category, user_id)
 
         return {"message": "Feedback received and stored successfully!"}
     except Exception as e:
@@ -184,6 +184,36 @@ def get_categorized_expenses(session_id: str):
     expenses_data = cursor.fetchall()
     conn.close()
     return [CategorizedExpense(**expense) for expense in expenses_data]
+
+@router.post("/keywords", response_model=KeywordCategory)
+def add_keyword(keyword_data: KeywordAddRequest):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO keyword_category (user_id, keyword, category) VALUES (?, ?, ?)",
+            (keyword_data.user_id, keyword_data.keyword, keyword_data.category)
+        )
+        conn.commit()
+        keyword_id = cursor.lastrowid
+        conn.close()
+        return KeywordCategory(id=keyword_id, **keyword_data.dict())
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="Keyword already exists for this user or globally.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add keyword: {e}")
+
+@router.get("/keywords", response_model=list[KeywordCategory])
+def get_keywords(user_id: str = None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if user_id:
+        cursor.execute("SELECT id, user_id, keyword, category FROM keyword_category WHERE user_id = ? OR user_id IS NULL", (user_id,))
+    else:
+        cursor.execute("SELECT id, user_id, keyword, category FROM keyword_category WHERE user_id IS NULL")
+    keywords_data = cursor.fetchall()
+    conn.close()
+    return [KeywordCategory(**keyword) for keyword in keywords_data]
 
 @router.get("/categorize")
 def categorize_example():

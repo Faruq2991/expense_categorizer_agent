@@ -4,8 +4,10 @@ DROP TABLE IF EXISTS keyword_category;
 
 CREATE TABLE keyword_category (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT, -- NULL for global keywords
     keyword TEXT NOT NULL,
-    category TEXT NOT NULL
+    category TEXT NOT NULL,
+    UNIQUE(user_id, keyword)
 );
 
 DROP TABLE IF EXISTS feedback;

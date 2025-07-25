@@ -8,7 +8,7 @@ from app.agent import run_categorizer
     ("Unknown input text", "Unknown"),
 ])
 def test_agent_categorization(input_text, expected_category):
-    result = run_categorizer(input_text)
+    result = run_categorizer(input_text, user_id=None)
     assert isinstance(result, dict)
     assert "category" in result
     assert "reasoning" in result

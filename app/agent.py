@@ -25,11 +25,13 @@ class AgentState(TypedDict):
     
     Attributes:
         input_text: The normalized transaction description.
+        user_id: The ID of the user making the request (optional).
         category: The final determined category.
         reasoning: Explanation of the matching method.
         confidence_score: A score indicating the certainty of the match.
     """
     input_text: str
+    user_id: Optional[str]
     category: Optional[str]
     reasoning: Optional[str]
     confidence_score: Optional[float]
@@ -37,12 +39,8 @@ class AgentState(TypedDict):
 
 # --- Tool and LLM Initialization ---
 
-def initialize_tools_and_llm():
-    """Initializes and returns all the necessary tools and the LLM chain."""
-    # Database Tool
-    conn = sqlite3.connect("data/keywords.db", check_same_thread=False)
-    db_tool = KeywordDBMatcherTool(conn=conn)
-
+def initialize_llm_and_regex_tool():
+    """Initializes and returns the LLM chain and Regex Tool."""
     # Regex Tool
     try:
         config_path = os.path.join(os.path.dirname(__file__), 'config', 'categories.yaml')
@@ -67,18 +65,24 @@ def initialize_tools_and_llm():
     )
     llm_chain = llm_prompt | llm | StrOutputParser()
     
-    return db_tool, regex_tool, llm_chain, categories_list
+    return regex_tool, llm_chain, categories_list
 
 # Initialize tools globally so they are created only once
-db_tool, regex_tool, llm_chain, CATEGORIES = initialize_tools_and_llm()
+regex_tool, llm_chain, CATEGORIES = initialize_llm_and_regex_tool()
 
 
 # --- Node and Router Functions ---
 
 def db_matcher_node(state: AgentState) -> dict:
-    """Attempts to categorize using the high-confidence database tool."""
+    """
+    Attempts to categorize using the high-confidence database tool.
+    Initializes db_tool with user_id from state.
+    """
     print("---1. DB MATCHER---")
+    conn = sqlite3.connect("data/keywords.db", check_same_thread=False)
+    db_tool = KeywordDBMatcherTool(conn=conn, user_id=state.get("user_id"))
     category = db_tool.get_best_match(state["input_text"])
+    conn.close() # Close connection after use
     if category:
         print(f"Result: Found category '{category}'")
         return {
@@ -184,7 +188,7 @@ def build_graph():
 graph = build_graph()
 
 # --- Main Execution Block ---
-def run_categorizer(input_text: str) -> dict:
+def run_categorizer(input_text: str, user_id: Optional[str] = None) -> dict:
     """Normalizes input text and runs it through the categorization graph."""
     normalized_input_text = normalize_text(input_text)
     input_state: AgentState = {"input_text": normalized_input_text}

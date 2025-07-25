@@ -43,8 +43,10 @@ def initialize_database():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS keyword_category (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT, -- NULL for global keywords
             keyword TEXT NOT NULL,
-            category TEXT NOT NULL
+            category TEXT NOT NULL,
+            UNIQUE(user_id, keyword)
         )
     """)
     print("'keyword_category' table is ready.")

@@ -42,3 +42,14 @@ class CategorizedExpense(BaseModel):
     category: str
     confidence_score: Optional[float]
     raw_input: Optional[str]
+
+class KeywordCategory(BaseModel):
+    id: Optional[int]
+    user_id: Optional[str]
+    keyword: str
+    category: str
+
+class KeywordAddRequest(BaseModel):
+    user_id: Optional[str] = None
+    keyword: str
+    category: str
