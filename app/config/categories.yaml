@@ -10,3 +10,47 @@ Entertainment:
   - "netflix"
   - "spotify"
   - "youtube"
+Shopping:
+  - "amazon"
+  - "walmart"
+  - "target"
+Electronics:
+  - "gadget"
+  - "phone"
+  - "laptop"
+Online Services:
+  - "google drive"
+  - "dropbox"
+  - "icloud"
+Utilities:
+  - "electricity"
+  - "water bill"
+  - "internet"
+Rent:
+  - "rent"
+  - "housing"
+Salary:
+  - "salary"
+  - "paycheck"
+Donations:
+  - "charity"
+  - "donation"
+Healthcare:
+  - "hospital"
+  - "pharmacy"
+  - "doctor"
+Education:
+  - "tuition"
+  - "course"
+  - "books"
+Travel:
+  - "flight"
+  - "hotel"
+  - "vacation"
+Personal Care:
+  - "haircut"
+  - "spa"
+  - "gym"
+Miscellaneous:
+  - "other"
+  - "misc"
