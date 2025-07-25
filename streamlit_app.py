@@ -32,6 +32,8 @@ if 'last_categorized_expense' not in st.session_state:
     st.session_state.last_categorized_expense = None
 if 'last_categorization_result' not in st.session_state:
     st.session_state.last_categorization_result = None
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "Categorization"
 
 def start_new_session():
     try:
@@ -270,7 +272,7 @@ def show_analytics_page():
             st.info("Amount column not available in categorized expenses for this analysis.")
 
     else:
-        st.info("No categorized expense data available yet.")
+        st.info("No feedback data available yet.")
 
     if not df_feedback.empty:
         st.subheader("Frequent Keyword Misses (Corrections)")
@@ -302,12 +304,19 @@ def show_analytics_page():
     else:
         st.info("No feedback data available yet.")
 
-    # --- Main App Logic ---
-page = st.sidebar.selectbox("Select a page", ["Categorization", "Analytics", "Custom Categories"], key="main_page_selector")
+# --- Main App Logic ---
+# Removed st.sidebar.selectbox and replaced with buttons
+st.sidebar.title("Navigation")
+if st.sidebar.button("Categorization", key="nav_categorization"):
+    st.session_state.current_page = "Categorization"
+if st.sidebar.button("Analytics", key="nav_analytics"):
+    st.session_state.current_page = "Analytics"
+if st.sidebar.button("Custom Categories", key="nav_custom_categories"):
+    st.session_state.current_page = "Custom Categories"
 
-if page == "Categorization":
+if st.session_state.current_page == "Categorization":
     show_categorization_page()
-elif page == "Analytics":
+elif st.session_state.current_page == "Analytics":
     show_analytics_page()
-elif page == "Custom Categories":
+elif st.session_state.current_page == "Custom Categories":
     show_custom_categories_page()
