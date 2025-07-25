@@ -46,9 +46,9 @@ This document outlines key enhancements that can elevate the categorizer from a 
 
 ## 📚 5. Hybrid Matching (Regex + Embeddings)
 
-- ❌ Embed all keywords using sentence-transformers or OpenAI embeddings.
-- ❌ Use vector similarity to improve fuzzy matching.
-- ❌ Merge with regex/db results via scoring or fallback logic.
+- ✅ Embed all keywords using sentence-transformers or OpenAI embeddings.
+- ✅ Use vector similarity to improve fuzzy matching.
+- ✅ Merge with regex/db results via scoring or fallback logic.
 
 ---
 

@@ -11,7 +11,8 @@ This application provides an intelligent, automated solution for categorizing ex
     *   **Text Normalization:** Preprocesses input text to clean noise and standardize formats (e.g., "POS TRXN", currency symbols).
     *   **Keyword Database Matching:** Utilizes a SQLite database (`keywords.db`) for precise keyword-to-category mapping. Ideal for common, well-defined expenses.
     *   **Regex Pattern Matching:** Employs regular expressions defined in `app/config/categories.yaml` for flexible pattern-based categorization. Useful for broader categories or variations in descriptions.
-    *   **LLM Fallback:** If neither DB nor Regex matching yields a confident result, an OpenAI Large Language Model is used as a fallback to categorize the expense.
+    *   **Vector Similarity Matching:** Uses pre-computed embeddings and cosine similarity to find semantically similar keywords, providing fuzzy matching capabilities.
+    *   **LLM Fallback:** If neither DB, Regex, nor Vector matching yields a confident result, an OpenAI Large Language Model is used as a fallback to categorize the expense.
 *   **Confidence Scores:** Each categorization method (DB, Regex, LLM) provides a confidence score, indicating the certainty of the match.
 *   **User Feedback Mechanism:** Allows users to correct miscategorizations, which can be used to improve future categorization accuracy.
 *   **Categorization Logging:** All categorization events are logged, including input text, final category, matching method, confidence score, and optional tags.

@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 # Ensure these tools are in the specified paths
 from app.tools.db_matcher import KeywordDBMatcherTool
 from app.tools.regex_matcher import RegexMatcherTool
+from app.tools.vector_matcher import VectorMatcherTool
 from app.tools.text_normalizer import normalize_text
 
 # --- Environment Setup ---
@@ -33,6 +34,7 @@ class AgentState(TypedDict):
     category: Optional[str]
     reasoning: Optional[str]
     confidence_score: Optional[float]
+    vector_result: Optional[dict]
 
 
 # --- Tool and LLM Initialization ---
@@ -66,11 +68,13 @@ def initialize_tools_and_llm():
         Category:"""
     )
     llm_chain = llm_prompt | llm | StrOutputParser()
+
+    vector_tool = VectorMatcherTool()
     
-    return db_tool, regex_tool, llm_chain, categories_list
+    return db_tool, regex_tool, vector_tool, llm_chain, categories_list
 
 # Initialize tools globally so they are created only once
-db_tool, regex_tool, llm_chain, CATEGORIES = initialize_tools_and_llm()
+db_tool, regex_tool, vector_tool, llm_chain, CATEGORIES = initialize_tools_and_llm()
 
 
 # --- Node and Router Functions ---
@@ -103,9 +107,24 @@ def regex_matcher_node(state: AgentState) -> dict:
     print("Result: No match found.")
     return {}
 
+def vector_matcher_node(state: AgentState) -> dict:
+    """Attempts to categorize using vector similarity."""
+    print("---3. VECTOR MATCHER---")
+    match = vector_tool.get_best_match(state["input_text"])
+    if match:
+        category, confidence = match
+        print(f"Result: Found category '{category}' with confidence {confidence:.2f}")
+        return {
+            "category": category,
+            "reasoning": "Matched using Vector Similarity",
+            "confidence_score": confidence
+        }
+    print("Result: No confident match found.")
+    return {}
+
 def llm_categorizer_node(state: AgentState) -> dict:
     """Fallback to LLM for categorization."""
-    print("---3. LLM CATEGORIZER---")
+    print("---4. LLM CATEGORIZER---")
     try:
         llm_category = llm_chain.invoke({
             "expense_description": state["input_text"],
@@ -144,7 +163,11 @@ def router(state: AgentState) -> str:
             return "regex_matcher"
     elif "Regex" in state.get("reasoning", ""): # After Regex
         if not state.get("category"):
-            print("Regex failed. Proceeding to LLM.")
+            print("Regex failed. Proceeding to Vector Matcher.")
+            return "vector_matcher"
+    elif "Vector Similarity" in state.get("reasoning", ""): # After Vector Matcher
+        if not state.get("category"):
+            print("Vector Matcher failed. Proceeding to LLM.")
             return "llm_categorizer"
             
     # As a fallback, if a category is found, we end.
@@ -159,6 +182,7 @@ def build_graph():
     # Add nodes
     categorizer.add_node("db_matcher", db_matcher_node)
     categorizer.add_node("regex_matcher", regex_matcher_node)
+    categorizer.add_node("vector_matcher", vector_matcher_node)
     categorizer.add_node("llm_categorizer", llm_categorizer_node)
 
     # Define the graph's flow
@@ -172,6 +196,11 @@ def build_graph():
     )
     categorizer.add_conditional_edges(
         "regex_matcher",
+        lambda s: END if s.get("category") else "vector_matcher",
+        {"vector_matcher": "vector_matcher", END: END}
+    )
+    categorizer.add_conditional_edges(
+        "vector_matcher",
         lambda s: END if s.get("category") else "llm_categorizer",
         {"llm_categorizer": "llm_categorizer", END: END}
     )
@@ -187,7 +216,7 @@ graph = build_graph()
 def run_categorizer(input_text: str) -> dict:
     """Normalizes input text and runs it through the categorization graph."""
     normalized_input_text = normalize_text(input_text)
-    input_state: AgentState = {"input_text": normalized_input_text}
+    input_state: AgentState = {"input_text": normalized_input_text, "vector_result": None}
     result = graph.invoke(input_state)
     return result
 
