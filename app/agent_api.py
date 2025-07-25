@@ -138,12 +138,14 @@ def submit_feedback(feedback: FeedbackRequest, session_id: str = None, user_id: 
 
         # Update keyword DB based on feedback, now with user_id
         # Only update if confidence was low and correction was made
+        print(f"DEBUG: Feedback received - Predicted: {feedback.predicted_category}, Corrected: {feedback.corrected_category}, Confidence: {feedback.confidence_score})")
         if feedback.confidence_score is not None and feedback.confidence_score < 0.7 and \
            feedback.predicted_category != feedback.corrected_category:
+            print(f"DEBUG: Attempting to auto-add keyword: {feedback.input_text} -> {feedback.corrected_category})")
             update_keyword_db(feedback.input_text, feedback.corrected_category, user_id)
             print(f"Auto-added keyword '{feedback.input_text}' for category '{feedback.corrected_category}' due to low confidence correction.")
         else:
-            print("Keyword not auto-added: confidence was high or no correction was made.")
+            print("DEBUG: Keyword not auto-added: confidence was high or no correction was made.")
 
         return {"message": "Feedback received and stored successfully!"}
     except Exception as e:

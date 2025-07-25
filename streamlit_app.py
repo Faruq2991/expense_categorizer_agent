@@ -28,6 +28,10 @@ def get_all_categories():
 # Session management
 if 'session_id' not in st.session_state:
     st.session_state.session_id = None
+if 'last_categorized_expense' not in st.session_state:
+    st.session_state.last_categorized_expense = None
+if 'last_categorization_result' not in st.session_state:
+    st.session_state.last_categorization_result = None
 
 def start_new_session():
     try:
@@ -58,86 +62,101 @@ def show_categorization_page():
     expense_description = st.text_area(
         "Expense Description",
         placeholder="e.g., Paid for my uber ride and groceries",
-        height=100
+        height=100,
+        key="expense_input" # Add a key to persist input
     )
-
-    # Input for tags (removed as it's not in the current API)
-    # tags_input = st.text_input(
-    #     "Tags (comma-separated)",
-    #     placeholder="e.g., personal, business, travel"
-    # )
 
     if st.button("Categorize Expense"):
         if expense_description:
             with st.spinner("Categorizing..."):
-                # Prepare the request data
                 request_data = {
                     "input_text": expense_description,
                 }
-                # Make a POST request to the FastAPI categorize endpoint
                 try:
                     response = requests.post(
                         "http://localhost:8000/api/categorize",
                         json=request_data,
                         params={"session_id": st.session_state.session_id}
                     )
-                    response.raise_for_status() # Raise an exception for HTTP errors
+                    response.raise_for_status()
                     result = response.json()
+                    
+                    # Store the last categorization details in session state
+                    st.session_state.last_categorized_expense = expense_description
+                    st.session_state.last_categorization_result = result
+
                 except requests.exceptions.ConnectionError:
                     st.error("Could not connect to the FastAPI server. Please ensure it is running.")
                     return
                 except requests.exceptions.RequestException as e:
                     st.error(f"Error during categorization: {e}")
                     return
-
-            st.subheader("Categorization Result:")
-            if result["category"] and result["category"] != "Unknown":
-                st.success(f"**Category:** {result['category']}")
-            else:
-                st.warning(f"**Category:** {result['category']}")
-
-            st.info(f"**Reasoning:** {result['reasoning']}")
-            if result.get("confidence_score") is not None:
-                st.write(f"**Confidence Score:** {result['confidence_score']:.2f}")
-            if result.get("matching_method") is not None:
-                st.write(f"**Matching Method:** {result['matching_method']}")
-
-            st.markdown("### Provide Feedback")
-            st.write("Was the categorization correct? If not, please select the correct category.")
-
-            all_categories = get_all_categories()
-
-            corrected_category = st.selectbox(
-                "Select Correct Category (if different)",
-                options=["-"] + all_categories,
-                index=0
-            )
-
-            if st.button("Submit Feedback"):
-                if corrected_category != "-":
-                    feedback_data = {
-                        "input_text": expense_description,
-                        "predicted_category": result['category'],
-                        "corrected_category": corrected_category,
-                        "reasoning": result['reasoning'],
-                        "confidence_score": result.get('confidence_score', 0.0)
-                    }
-                    try:
-                        response = requests.post(
-                            "http://localhost:8000/api/feedback",
-                            json=feedback_data,
-                            params={"session_id": st.session_state.session_id}
-                        )
-                        if response.status_code == 200:
-                            st.success("Feedback submitted successfully!")
-                        else:
-                            st.error(f"Failed to submit feedback: {response.status_code} - {response.text}")
-                    except requests.exceptions.ConnectionError:
-                        st.error("Could not connect to the feedback API. Is the FastAPI server running?")
-                else:
-                    st.warning("Please select a corrected category or '-' if no correction is needed.")
         else:
             st.error("Please enter an expense description to categorize.")
+
+    # Display categorization result and feedback section if a result exists in session state
+    if st.session_state.last_categorization_result:
+        result = st.session_state.last_categorization_result
+        expense_description = st.session_state.last_categorized_expense
+
+        st.subheader("Categorization Result:")
+        if result["category"] and result["category"] != "Unknown":
+            st.success(f"**Category:** {result['category']}")
+        else:
+            st.warning(f"**Category:** {result['category']}")
+
+        st.info(f"**Reasoning:** {result['reasoning']}")
+        if result.get("confidence_score") is not None:
+            st.write(f"**Confidence Score:** {result['confidence_score']:.2f}")
+        if result.get("matching_method") is not None:
+            st.write(f"**Matching Method:** {result['matching_method']}")
+
+        st.markdown("### Provide Feedback")
+        st.write("Was the categorization correct? If not, please select the correct category.")
+        print("DEBUG: Feedback section rendered.")
+
+        all_categories = get_all_categories()
+
+        corrected_category = st.selectbox(
+            "Select Correct Category (if different)",
+            options=["-"] + all_categories,
+            index=0,
+            key="feedback_selectbox" # Add a key
+        )
+
+        if st.button("Submit Feedback", key="submit_feedback_button"):
+            print("DEBUG: Submit Feedback button clicked. ")
+            if corrected_category != "-":
+                feedback_data = {
+                    "input_text": expense_description,
+                    "predicted_category": result['category'],
+                    "corrected_category": corrected_category,
+                    "reasoning": result['reasoning'],
+                    "confidence_score": result.get('confidence_score', 0.0)
+                }
+                print(f"DEBUG: Sending feedback data: {feedback_data}")
+                try:
+                    response = requests.post(
+                        "http://localhost:8000/api/feedback",
+                        json=feedback_data,
+                        params={"session_id": st.session_state.session_id}
+                    )
+                    response.raise_for_status()
+                    if response.status_code == 200:
+                        st.success("Feedback submitted successfully!")
+                        print("DEBUG: Feedback API call successful.")
+                    else:
+                        st.error(f"Failed to submit feedback: {response.status_code} - {response.text}")
+                        print(f"DEBUG: Feedback API call failed with status {response.status_code}: {response.text}")
+                except requests.exceptions.ConnectionError:
+                    st.error("Could not connect to the feedback API. Is the FastAPI server running?")
+                    print("DEBUG: ConnectionError: Could not connect to FastAPI server.")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"An error occurred during feedback submission: {e}")
+                    print(f"DEBUG: RequestException during feedback submission: {e}")
+            else:
+                st.warning("Please select a corrected category or '-' if no correction is needed.")
+                print("DEBUG: No corrected category selected.")
 
     st.markdown(
         """
@@ -284,7 +303,7 @@ def show_analytics_page():
         st.info("No feedback data available yet.")
 
     # --- Main App Logic ---
-page = st.sidebar.selectbox("Select a page", ["Categorization", "Analytics", "Custom Categories"])
+page = st.sidebar.selectbox("Select a page", ["Categorization", "Analytics", "Custom Categories"], key="main_page_selector")
 
 if page == "Categorization":
     show_categorization_page()
