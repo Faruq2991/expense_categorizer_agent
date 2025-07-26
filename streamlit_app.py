@@ -11,6 +11,46 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 st.set_page_config(page_title="Expense Categorizer", page_icon="💰", layout="wide")
 
+# Add custom CSS for mobile-first responsive design
+st.markdown("""
+<style>
+    /* Main container adjustments */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    /* Responsive typography */
+    h1, h2, h3 {
+        font-size: 1.8rem;
+    }
+    p, div, span {
+        font-size: 1rem;
+    }
+
+    /* Media query for smaller screens (mobile-first approach) */
+    @media (max-width: 600px) {
+        .main .block-container {
+            padding-top: 1rem;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        h1, h2, h3 {
+            font-size: 1.5rem;
+        }
+        p, div, span {
+            font-size: 0.9rem;
+        }
+        /* Make buttons and inputs full-width on small screens */
+        .stButton>button, .stTextInput>div>div>input {
+            width: 100%;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Database connection for analytics
 def get_db_connection():
     conn = sqlite3.connect("data/keywords.db")
@@ -39,12 +79,14 @@ def start_new_session():
     try:
         response = requests.post("http://localhost:8000/api/sessions")
         response.raise_for_status()
-        st.session_state.session_id = response.json()["session_id"]
+        session_data = response.json()
+        st.session_state.session_id = session_data["session_id"]
         st.success(f"New session started: {st.session_state.session_id}")
     except requests.exceptions.ConnectionError:
         st.error("Could not connect to the FastAPI server. Please ensure it is running.")
     except requests.exceptions.RequestException as e:
         st.error(f"Error starting session: {e}")
+
 
 # --- Categorization Page ---
 def show_categorization_page():
@@ -115,7 +157,6 @@ def show_categorization_page():
 
         st.markdown("### Provide Feedback")
         st.write("Was the categorization correct? If not, please select the correct category.")
-        print("DEBUG: Feedback section rendered.")
 
         all_categories = get_all_categories()
 
@@ -127,7 +168,6 @@ def show_categorization_page():
         )
 
         if st.button("Submit Feedback", key="submit_feedback_button"):
-            print("DEBUG: Submit Feedback button clicked. ")
             if corrected_category != "-":
                 feedback_data = {
                     "input_text": expense_description,
@@ -136,7 +176,6 @@ def show_categorization_page():
                     "reasoning": result['reasoning'],
                     "confidence_score": result.get('confidence_score', 0.0)
                 }
-                print(f"DEBUG: Sending feedback data: {feedback_data}")
                 try:
                     response = requests.post(
                         "http://localhost:8000/api/feedback",
@@ -146,19 +185,15 @@ def show_categorization_page():
                     response.raise_for_status()
                     if response.status_code == 200:
                         st.success("Feedback submitted successfully!")
-                        print("DEBUG: Feedback API call successful.")
                     else:
                         st.error(f"Failed to submit feedback: {response.status_code} - {response.text}")
-                        print(f"DEBUG: Feedback API call failed with status {response.status_code}: {response.text}")
                 except requests.exceptions.ConnectionError:
                     st.error("Could not connect to the feedback API. Is the FastAPI server running?")
-                    print("DEBUG: ConnectionError: Could not connect to FastAPI server.")
                 except requests.exceptions.RequestException as e:
                     st.error(f"An error occurred during feedback submission: {e}")
-                    print(f"DEBUG: RequestException during feedback submission: {e}")
             else:
                 st.warning("Please select a corrected category or '-' if no correction is needed.")
-                print("DEBUG: No corrected category selected.")
+                
 
     st.markdown(
         """

@@ -6,6 +6,7 @@ This application provides an intelligent, automated solution for categorizing ex
 
 ## Features
 
+*   **Responsive Design:** The user interface is designed to be mobile-first and responsive, providing an optimal experience on both desktop and mobile devices.
 *   **Intelligent Expense Categorization:** Automatically assigns categories (e.g., Food, Transport, Housing) to expense descriptions.
 *   **Multi-Stage Hybrid Matching System:**
     *   **Text Normalization:** Preprocesses input text to clean noise and standardize formats (e.g., "POS TRXN", currency symbols, dates, times, bank/card terms, common transaction verbs).

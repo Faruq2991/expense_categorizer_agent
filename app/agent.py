@@ -64,8 +64,6 @@ def initialize_llm_and_regex_tool():
         Category:"""
     )
     llm_chain = llm_prompt | llm | StrOutputParser()
-    
-    print(f"DEBUG: LLM Categories: {categories_list}")
     return regex_tool, llm_chain, categories_list
 
 # Initialize tools globally so they are created only once

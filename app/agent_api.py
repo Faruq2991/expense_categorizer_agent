@@ -149,6 +149,7 @@ def submit_feedback(feedback: FeedbackRequest, session_id: str = None, user_id: 
 
 @router.post("/sessions", response_model=Session)
 def start_new_session(user_id: str = None, metadata: str = None):
+    print(f"DEBUG: Backend received request to start new session for user_id: {user_id}")
     session_id = create_session(user_id, metadata)
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -156,7 +157,9 @@ def start_new_session(user_id: str = None, metadata: str = None):
     session_data = cursor.fetchone()
     conn.close()
     if session_data:
+        print(f"DEBUG: Session created successfully: {session_id}")
         return Session(**session_data)
+    print("DEBUG: Failed to create session in backend.")
     raise HTTPException(status_code=500, detail="Failed to create session.")
 
 @router.get("/sessions/{session_id}", response_model=Session)
